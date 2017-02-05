@@ -6,8 +6,7 @@ class SLLNode:
 class SLL:
 	def __init__(self):
 		self.head = SLLNode(None)
-		self.tail = SLLNode(None)
-		self.head.next = self.tail
+		self.tail = self.head
 
 	def __iter__(self):
 		self.current = self.head
@@ -21,8 +20,6 @@ class SLL:
 	def append(self, val):
 		if self.head.val == None:
 			self.head.val = val
-		elif self.tail.val == None:
-			self.tail.val = val
 		else:
 			new_node = SLLNode(val)
 			self.tail.next = new_node
@@ -32,11 +29,7 @@ class SLL:
 		if not node or not node.val:
 			raise Exception('Node must exist and must have a value')
 		if self.head.val == None:
-			self.head = node
-			self.head.next = self.tail
-		elif self.tail.val == None:
-			self.tail = node
-			self.head.next = self.tail
+			self.tail = self.head
 		else:
 			self.tail.next = node
 			self.tail = node
@@ -51,11 +44,8 @@ class SLL:
 		if self.empty():
 			raise Exception('List is empty, cannot delete')
 		if self.head.val == val:
-			if self.head.next == self.tail:
-				self.head.val = self.tail.val
-				self.tail.val = None
-			else:
-				self.head.val == None
+			self.head.val = None
+			if self.head.next:
 				self.head = self.head.next
 		else:
 			walker = self.head
@@ -90,21 +80,14 @@ class SLL:
 				nex = cur.next
 		self.tail = self.head
 		self.head = prev
-		if self.head.val == None:
-			self.head.val = self.tail.val
-			self.tail.val = None
 
 	def reverse_rec(self, cur = None):
 		if not cur:
 			cur = self.head
 			self.tail = self.head
-		if cur.next and not cur.next.next:
-			self.head = cur.next
-			cur.next.next = cur
+		if not cur.next:
 			self.tail.next = None
-			if self.head.val == None:
-				self.head.val = self.tail.val
-				self.tail.val = None
+			self.head = cur
 			return cur
 		nex = self.reverse_rec(cur.next)
 		nex.next = cur
@@ -112,10 +95,10 @@ class SLL:
 
 s = SLL()
 # s.append(1)
-for i in range(3):
+for i in range(5):
 	s.append(i)
 #
 # s.reverse_rec()
-# s.reverse_rec()
-s.reverse()
+s.reverse_rec()
+# s.reverse()
 print s.arrayify()
