@@ -48,16 +48,17 @@ class AdjacencyMatrixGraph:
 		return result
 
 	def __child_poses__(self, i, j):
+		#N, E, S, W
 		self.__validate_pos__(i, j)
 		result = []
 		if i != 0:
 			result.append((i - 1, j))
+		if j != self.cols - 1:
+			result.append((i, j + 1))
 		if i != self.rows - 1:
 			result.append((i + 1, j))
 		if j != 0:
 			result.append((i, j - 1))
-		if j != self.cols - 1:
-			result.append((i, j + 1))
 		return result
 
 	def __compute_dists__(self):
@@ -173,6 +174,30 @@ class AdjacencyMatrixGraph:
 					q.append((pos[0], pos[1], dist + 1))
 					visited.add(pos)
 
+	def explore(self, i, j, seen):
+		q = deque([(i, j)])
+		while q:
+			cur_i, cur_j = q.popleft()
+			child_poses = self.__child_poses__(cur_i, cur_j)
+			for pos in child_poses:
+				if pos not in seen and self[pos] in self.targets:
+					q.append(pos)
+					seen.add(pos)
+
+	def num_groups_of_targets(self):
+		seen = set()
+		result = 0
+		for i in range(len(self.grid)):
+			for j in range(len(self.grid[0])):
+				# print self[[i, j]]
+				if (i, j) in seen:
+					continue
+				elif self[[i, j]] in self.targets:
+					result += 1
+					self.explore(i, j, seen)
+				seen.add((i, j))
+		return result
+
 	def total_dists_and_best_position_to_access_targets(self):
 		dists = self.floyd_warshall_distances_only()
 		passables, targets = self.__passable_v_ids_and_targets__()
@@ -189,6 +214,94 @@ class AdjacencyMatrixGraph:
 		if build_id:
 			pos = self.__v_id_to_pos__(build_id)
 		return [min_dist, pos]
+
+	def shortest_dist_ball(self, start_pos, end_pos):
+		start_pos += [None, 0]
+		start_pos = tuple(start_pos)
+		seen = set()
+		q = deque([start_pos])
+		directions = ['N', 'E', 'S', 'W']
+		while q:
+			i, j, direction, dist = q.popleft()
+			if [i, j] == end_pos:
+				if not direction:
+					return 0
+				elif direction == 'N':
+					if i == 0 or self[[i - 1, j]] in self.obstacles:
+						return dist
+				elif direction == 'E':
+					if j == len(self.grid[0]) - 1 or self[[i, j + 1]] in self.obstacles:
+						return dist
+				elif direction == 'S':
+					if i == len(self.grid) - 1 or self[[i + 1, j]] in self.obstacles:
+						return dist
+				elif direction == 'W':
+					if j == 0 or self[[i, j - 1]] in self.obstacles:
+						return dist
+			if not direction:
+				if i != 0 and self[[i - 1, j]] not in self.obstacles:
+					q.append((i - 1, j, 'N', dist + 1))
+					seen.add((i - 1, j, 'N'))
+				if j != 0 and self[[i, j - 1]] not in self.obstacles:
+					q.append((i, j - 1, 'W', dist + 1))
+					seen.add((i, j - 1, 'W'))
+				if i != len(self.grid) - 1 and self[[i + 1, j]] not in self.obstacles:
+					q.append((i + 1, j, 'S', dist + 1))
+					seen.add((i + 1, j, 'S'))
+				if j != len(self.grid[0]) - 1 and self[[i, j + 1]] not in self.obstacles:
+					q.append((i, j + 1, 'E', dist + 1))
+					seen.add((i, j + 1, 'E'))
+			elif direction == 'N':
+				if i == 0 or self[[i - 1, j]] in self.obstacles:
+					if j != 0 and (i, j - 1, 'W') not in seen and self[[i, j - 1]] not in self.obstacles:
+						q.append((i, j - 1, 'W', dist + 1))
+						seen.add((i, j - 1, 'W'))
+					if j != len(self.grid[0]) - 1 and (i, j + 1, 'E') not in seen and self[[i, j + 1]] not in self.obstacles:
+						q.append((i, j + 1, 'E', dist + 1))
+						seen.add((i, j + 1, 'E'))
+				else:
+					q.append((i - 1, j, 'N', dist + 1))
+					seen.add((i - 1, j, 'N'))
+			elif direction == 'E':
+				if j == len(self.grid[0]) - 1 or self[[i, j + 1]] in self.obstacles:
+					if i != 0 and (i - 1, j, 'N') not in seen and self[[i - 1, j]] not in self.obstacles:
+						q.append((i - 1, j, 'N', dist + 1))
+						seen.add((i - 1, j, 'N'))
+					if i != len(self.grid) - 1 and (i + 1, j, 'S') not in seen and self[[i + 1, j]] not in self.obstacles:
+						q.append((i + 1, j, 'S', dist + 1))
+						seen.add((i + 1, j, 'S'))
+				else:
+					q.append((i, j + 1, 'E', dist + 1))
+					seen.add((i, j + 1, 'E'))
+			elif direction == 'S':
+				if i == len(self.grid) - 1 or self[[i + 1, j]] in self.obstacles:
+					if j != len(self.grid[0]) - 1 and (i, j + 1, 'E') not in seen and self[[i, j + 1]] not in self.obstacles:
+						q.append((i, j + 1, 'E', dist + 1))
+						seen.add((i, j + 1, 'E'))
+					if j != 0 and (i, j - 1, 'W') not in seen and self[[i, j - 1]] not in self.obstacles:
+						q.append((i, j - 1, 'W', dist + 1))
+						seen.add((i, j - 1, 'W'))
+				else:
+					q.append((i + 1, j, 'S', dist + 1))
+					seen.add((i + 1, j, 'S'))
+			elif direction == 'W':
+				if j == 0 or self[[i, j - 1]] in self.obstacles:
+					if i != 0 and (i - 1, j, 'N') not in seen and self[[i - 1, j]] not in self.obstacles:
+						q.append((i - 1, j, 'N', dist + 1))
+						seen.add((i - 1, j, 'N'))
+					if i != len(self.grid) - 1 and (i + 1, j, 'S') not in seen and self[[i + 1, j]] not in self.obstacles:
+						q.append((i + 1, j, 'S', dist + 1))
+						seen.add((i + 1, j, 'S'))
+				else:
+					q.append((i, j - 1, 'W', dist + 1))
+					seen.add((i, j - 1, 'W'))
+		return -1
+
+
+
+
+
+
 
 
 
@@ -207,3 +320,28 @@ class AdjacencyMatrixGraph:
 # mg2 = AdjacencyMatrixGraph(grid2, set([float('inf')]), set([0]), set([-1]))
 # mg2.dists_from_all_targets()
 # print mg2.grid
+
+# grid3 = [
+#   '11000',
+#   '11000',
+#   '00100',
+#   '00011'
+# ]
+# grid4 = [
+#   '11110',
+#   '11010',
+#   '11000',
+#   '00000'
+# ]
+# mg3 = AdjacencyMatrixGraph(grid4, set(['0']), set(['1']))
+# print mg3.num_groups_of_targets()
+
+grid4 = [
+  [0, 0, 1, 0, 0],
+  [1, 0, 0, 1, 0],
+  [0, 0, 0, 0, 0],
+  [0, 0, 0, 1, 1],
+  [0, 0, 0, 0, 0]
+]
+mg4 = AdjacencyMatrixGraph(grid4, set([0]), None, set([1]))
+print mg4.shortest_dist_ball([1, 2], [2, 4])
