@@ -1,4 +1,7 @@
 from collections import deque
+import sys
+sys.path.append('..')
+from functions import deep_dup
 
 #Edges in this graph are from one position to all adjacent positions, not including diagonals.
 class AdjacencyMatrixGraph:
@@ -77,13 +80,21 @@ class AdjacencyMatrixGraph:
 		return empty
 
 	def __getitem__(self, pos):
-		self.__validate_pos__(pos[0], pos[1])
-		return self.grid[pos[0]][pos[1]]
+		if type(pos) in [list, tuple]:
+			self.__validate_pos__(pos[0], pos[1])
+			return self.grid[pos[0]][pos[1]]
+		else:
+			if pos < 0 or pos >= len(self.grid):
+				raise IndexError('Row index out of range')
+			return self.grid[pos]
 
 	def __setitem__(self, pos, val):
 		self.__validate_pos__(pos[0], pos[1])
 		self.grid[pos[0]][pos[1]] = val
 		return val
+
+	def __len__(self):
+		return len(self.grid)
 
 	def __passable_v_ids_and_targets__(self):
 		passables = []
@@ -111,7 +122,7 @@ class AdjacencyMatrixGraph:
 
 	def __validate_pos__(self, i, j):
 		if i < 0 or i >= self.rows or j < 0 or j >= self.cols:
-			raise Exception('Position out of range')
+			raise IndexError('Index out of range')
 
 	def __v_id_to_pos__(self, v_id):
 		self.__validate_id__(v_id)
@@ -174,6 +185,9 @@ class AdjacencyMatrixGraph:
 					q.append((pos[0], pos[1], dist + 1))
 					visited.add(pos)
 
+	def dup_grid(self):
+		return deep_dup(self.grid)
+
 	def explore(self, i, j, seen):
 		q = deque([(i, j)])
 		while q:
@@ -184,12 +198,19 @@ class AdjacencyMatrixGraph:
 					q.append(pos)
 					seen.add(pos)
 
+	def first(self):
+		return self[[0, 0]]
+
+	def last(self):
+		i = len(self) - 1
+		j = len(self[0]) - 1
+		return self[[i, j]]
+
 	def num_groups_of_targets(self):
 		seen = set()
 		result = 0
 		for i in range(len(self.grid)):
 			for j in range(len(self.grid[0])):
-				# print self[[i, j]]
 				if (i, j) in seen:
 					continue
 				elif self[[i, j]] in self.targets:
@@ -215,100 +236,28 @@ class AdjacencyMatrixGraph:
 			pos = self.__v_id_to_pos__(build_id)
 		return [min_dist, pos]
 
+	def shortest_distances_from_all_targets(self):
+		from dists_from_targets import shortest_distances_from_all_targets
+		return shortest_distances_from_all_targets(self)
+
 	def shortest_dist_ball(self, start_pos, end_pos):
-		start_pos += [None, 0]
-		start_pos = tuple(start_pos)
-		seen = set()
-		q = deque([start_pos])
-		directions = ['N', 'E', 'S', 'W']
-		while q:
-			i, j, direction, dist = q.popleft()
-			if [i, j] == end_pos:
-				if not direction:
-					return 0
-				elif direction == 'N':
-					if i == 0 or self[[i - 1, j]] in self.obstacles:
-						return dist
-				elif direction == 'E':
-					if j == len(self.grid[0]) - 1 or self[[i, j + 1]] in self.obstacles:
-						return dist
-				elif direction == 'S':
-					if i == len(self.grid) - 1 or self[[i + 1, j]] in self.obstacles:
-						return dist
-				elif direction == 'W':
-					if j == 0 or self[[i, j - 1]] in self.obstacles:
-						return dist
-			if not direction:
-				if i != 0 and self[[i - 1, j]] not in self.obstacles:
-					q.append((i - 1, j, 'N', dist + 1))
-					seen.add((i - 1, j, 'N'))
-				if j != 0 and self[[i, j - 1]] not in self.obstacles:
-					q.append((i, j - 1, 'W', dist + 1))
-					seen.add((i, j - 1, 'W'))
-				if i != len(self.grid) - 1 and self[[i + 1, j]] not in self.obstacles:
-					q.append((i + 1, j, 'S', dist + 1))
-					seen.add((i + 1, j, 'S'))
-				if j != len(self.grid[0]) - 1 and self[[i, j + 1]] not in self.obstacles:
-					q.append((i, j + 1, 'E', dist + 1))
-					seen.add((i, j + 1, 'E'))
-			elif direction == 'N':
-				if i == 0 or self[[i - 1, j]] in self.obstacles:
-					if j != 0 and (i, j - 1, 'W') not in seen and self[[i, j - 1]] not in self.obstacles:
-						q.append((i, j - 1, 'W', dist + 1))
-						seen.add((i, j - 1, 'W'))
-					if j != len(self.grid[0]) - 1 and (i, j + 1, 'E') not in seen and self[[i, j + 1]] not in self.obstacles:
-						q.append((i, j + 1, 'E', dist + 1))
-						seen.add((i, j + 1, 'E'))
+		from ball import shortest_dist_ball
+		return shortest_dist_ball(self, start_pos, end_pos)
+
+	def num_paths_from_top_left_to_bottom_right(self):
+		if self.first() not in self.passable_v_vals or self.last() not in self.passable_v_vals:
+			return 0
+		grid = self.dup_grid()
+		for i in range(len(grid)):
+			for j in range(len(grid[0])):
+				if self[[i, j]] in self.passable_v_vals:
+					if i == 0 or j == 0:
+						grid[i][j] = 1
+					else:
+						grid[i][j] = grid[i - 1][j] + grid[i][j - 1]
 				else:
-					q.append((i - 1, j, 'N', dist + 1))
-					seen.add((i - 1, j, 'N'))
-			elif direction == 'E':
-				if j == len(self.grid[0]) - 1 or self[[i, j + 1]] in self.obstacles:
-					if i != 0 and (i - 1, j, 'N') not in seen and self[[i - 1, j]] not in self.obstacles:
-						q.append((i - 1, j, 'N', dist + 1))
-						seen.add((i - 1, j, 'N'))
-					if i != len(self.grid) - 1 and (i + 1, j, 'S') not in seen and self[[i + 1, j]] not in self.obstacles:
-						q.append((i + 1, j, 'S', dist + 1))
-						seen.add((i + 1, j, 'S'))
-				else:
-					q.append((i, j + 1, 'E', dist + 1))
-					seen.add((i, j + 1, 'E'))
-			elif direction == 'S':
-				if i == len(self.grid) - 1 or self[[i + 1, j]] in self.obstacles:
-					if j != len(self.grid[0]) - 1 and (i, j + 1, 'E') not in seen and self[[i, j + 1]] not in self.obstacles:
-						q.append((i, j + 1, 'E', dist + 1))
-						seen.add((i, j + 1, 'E'))
-					if j != 0 and (i, j - 1, 'W') not in seen and self[[i, j - 1]] not in self.obstacles:
-						q.append((i, j - 1, 'W', dist + 1))
-						seen.add((i, j - 1, 'W'))
-				else:
-					q.append((i + 1, j, 'S', dist + 1))
-					seen.add((i + 1, j, 'S'))
-			elif direction == 'W':
-				if j == 0 or self[[i, j - 1]] in self.obstacles:
-					if i != 0 and (i - 1, j, 'N') not in seen and self[[i - 1, j]] not in self.obstacles:
-						q.append((i - 1, j, 'N', dist + 1))
-						seen.add((i - 1, j, 'N'))
-					if i != len(self.grid) - 1 and (i + 1, j, 'S') not in seen and self[[i + 1, j]] not in self.obstacles:
-						q.append((i + 1, j, 'S', dist + 1))
-						seen.add((i + 1, j, 'S'))
-				else:
-					q.append((i, j - 1, 'W', dist + 1))
-					seen.add((i, j - 1, 'W'))
-		return -1
-
-
-
-
-
-
-
-
-
-
-
-
-
+					grid[i][j] = 0
+		return grid[len(grid) - 1][len(grid[0]) - 1]
 
 
 
@@ -336,12 +285,35 @@ class AdjacencyMatrixGraph:
 # mg3 = AdjacencyMatrixGraph(grid4, set(['0']), set(['1']))
 # print mg3.num_groups_of_targets()
 
-grid4 = [
-  [0, 0, 1, 0, 0],
-  [1, 0, 0, 1, 0],
-  [0, 0, 0, 0, 0],
-  [0, 0, 0, 1, 1],
-  [0, 0, 0, 0, 0]
-]
-mg4 = AdjacencyMatrixGraph(grid4, set([0]), None, set([1]))
-print mg4.shortest_dist_ball([1, 2], [2, 4])
+# grid4 = [
+#   [0, 0, 1, 0, 0],
+#   [1, 0, 0, 1, 0],
+#   [0, 0, 0, 0, 0],
+#   [0, 1, 0, 1, 1],
+#   [0, 0, 0, 1, 0]
+# ]
+# mg4 = AdjacencyMatrixGraph(grid4, set([0]), None, set([1]))
+# print mg4.shortest_dist_ball([1, 2], [2, 4])
+
+
+# grid5 = [
+#   [0,2,0,2,2,0,2,2],
+#   [0,2,2,2,1,0,1,2],
+#   [0,0,0,1,0,2,0,0],
+#   [2,0,0,2,0,2,2,0],
+#   [0,0,0,2,0,0,0,0]
+# ]
+# mg5 = AdjacencyMatrixGraph(grid5)
+# print mg5.shortest_distances_from_all_targets()
+
+
+# grid6 = [
+#   [0, 0, 0],
+#   [0, 1, 1],
+#   [0, 0, 0],
+#   [0, 1, 0],
+#   [0, 0, 0]
+# ]
+#
+# mg6 = AdjacencyMatrixGraph(grid6)
+# print mg6.num_paths_from_top_left_to_bottom_right()

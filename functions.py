@@ -1,4 +1,6 @@
 from collections import deque
+from random import randint
+import re
 
 def deep_dup(l, q = False):
 	if q:
@@ -126,3 +128,73 @@ def rotate_square_grid(grid):
 		for j in range(i, len(grid) - i - 1):
 			four_positions = get_positions(grid, i, j)
 			swap(grid, four_positions)
+
+def valid_emails(strs):
+	result = []
+	for string in strs:
+		if re.match('^[^@]+@[^.@]+\.[^.@]+$', string):
+			result.append(string)
+	return result
+
+def valid_emails_no_regex(strs):
+	result = []
+	for string in strs:
+		if not string or string.count('@') != 1:
+			continue
+		if string[0] == '@' or string[-1] == '@':
+			continue
+		right_side = string[string.index('@') + 1:]
+		if right_side[0] == '.' or right_side[-1] == '.':
+			continue
+		if right_side.count('.') != 1:
+			continue
+		result.append(string)
+	return result
+
+def valid_email(string):
+	if not string:
+		return False
+	if string[0] in ['@', '.'] or string[-1] in ['@', '.']:
+		return False
+	i = 0
+	seen_at = False
+	at_idx = None
+	seen_dot = False
+	while i < len(string):
+		if string[i] == '@' and seen_at:
+			return False
+		elif string[i] == '@':
+			seen_at = True
+			at_idx = i
+		if seen_at:
+			if string[i] == '.' and seen_dot:
+				return False
+			elif string[i] == '.' and at_idx == i - 1:
+				return False
+			elif string[i] == '.':
+				seen_dot = True
+		i += 1
+	return seen_at and seen_dot
+
+def valid_emails_no_regex_2(strs):
+	result = []
+	for string in strs:
+		if valid_email(string):
+			result.append(string)
+	return result
+
+def find_emails(string):
+	found = re.findall('[\b!?"\']*([^@!?\b]+@[^@.\b]+\.[^@.\b]+)', string)
+	if found:
+		return found
+	else:
+		return None
+
+def shuffle_ip(l):
+	count = len(l)
+	idx = len(l) - 1
+	while count:
+		sample_idx = randint(0, count - 1)
+		l[idx], l[sample_idx] = l[sample_idx], l[idx]
+		idx -= 1
+		count -= 1
